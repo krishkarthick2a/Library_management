@@ -7,6 +7,10 @@ module.exports = {
     mumbai:{
       url: "",
       accounts: [""]
+    },
+    sepolia: {
+      url: "https://eth-sepolia.g.alchemy.com/v2/06FpnU4zuFmBgqTE-ziJPggMOEGlQ6mw",
+      accounts: [""] 
     }
   },
   etherscan:{

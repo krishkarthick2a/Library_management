@@ -13,6 +13,9 @@ async function main(){
     console.log("token address : ", token.target);
 
     console.log("deployed at :", contract.target);
+
+    console.log("signer balance : ", await token.balanceOf(signer.address));
+    console.log("total supply : ", await token.totalSupply());
 }
 
 main();

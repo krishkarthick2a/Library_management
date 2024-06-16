@@ -3,8 +3,6 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-//token address :  0xB7e2038753547602893c9a4c7C9D5CCE358b93b3
-// deployed at : 0x6d92Cf4bD6205cFd7C1309D6EBA65A11D8c49ce7
 contract Library {
     struct Book {
         uint256 id;
@@ -12,6 +10,7 @@ contract Library {
         uint256 price;
         address borrower;
         bool checkedOut;
+        uint dueDate;
     }
 
     struct User {
@@ -19,10 +18,13 @@ contract Library {
         string name;
         uint256 balance;
         uint256[] borrowedBooks;
+        string mailId;
     }
 
     mapping(uint256 => Book) public books;
     mapping(address => User) public users;
+     mapping(uint => address[]) public reservations;
+
     uint256 public totalBooks;
     uint256 public totalUsers;
 
@@ -47,16 +49,15 @@ contract Library {
 
     function addBook(string memory _title, uint256 _price) external onlyOwner {
         totalBooks++;
-        books[totalBooks] = Book(totalBooks, _title, _price, address(0), false);
+        books[totalBooks] = Book(totalBooks, _title, _price, address(0), false,0);
         emit BookAdded(totalBooks, _title);
     }
 
-    function addUser(string memory _name,address _Id, uint256 _tokens ) external onlyOwner returns(bool){
+    function addUser(string memory _name,address _Id, uint256 _tokens, string memory _mailId) external onlyOwner{
         totalUsers++;
         IERC20(token).transferFrom(owner,_Id, _tokens);
-        users[_Id] = User(_Id, _name,_tokens,  new uint256[](0));
+        users[_Id] = User(_Id, _name,_tokens,  new uint256[](0), _mailId);
         emit UserAdded(msg.sender, _name);
-        return true;
     }
 
     function BookIssue(uint256 _bookId) external {
@@ -67,6 +68,7 @@ contract Library {
         uint256 bookFee = books[_bookId].price;
          IERC20(token).transferFrom(_Id, owner, bookFee);
         books[_bookId].borrower = msg.sender;
+        books[_bookId].dueDate = block.timestamp+1 weeks;
         books[_bookId].checkedOut = true;
         users[msg.sender].balance-= bookFee;
         users[msg.sender].borrowedBooks.push(_bookId);
@@ -78,7 +80,14 @@ contract Library {
         require(_bookId <= totalBooks && _bookId > 0, "Invalid book ID");
         require(books[_bookId].checkedOut, "Book is not checked out");
         require(books[_bookId].borrower == msg.sender, "You are not the borrower");
-
+        address _Id = users[msg.sender].id;
+         uint256 bookFee = books[_bookId].price;
+         if (books[_bookId].dueDate > block.timestamp){
+            IERC20(token).transferFrom(owner ,_Id, 90%bookFee);
+         }else {
+            IERC20(token).transferFrom(owner ,_Id, bookFee);
+         }
+ 
         books[_bookId].borrower = address(0);
         books[_bookId].checkedOut = false;
 
@@ -90,11 +99,28 @@ contract Library {
                 borrowedBooks.pop();
                 break;
             }
+  
         }
 
         emit BookReturned(_bookId);
     }
 
+     function reserveBook(uint256 _bookId) external{
+        require(books[_bookId].borrower!= address(0), "Book is already borrowed");
+        require(isBookReserved(_bookId, msg.sender)!=false, "Book is already reserved by the user");
+        
+        reservations[_bookId].push(msg.sender);
+    }
+
+ function isBookReserved(uint _bookId, address _user) internal view returns(bool) {
+        address[] memory users_ = reservations[_bookId];
+        for (uint i = 0; i < users_.length; i++) {
+            if (users_[i] == _user) {
+                return true;
+            }
+        }
+        return false;
+    }
     function getUserBorrowedBooks(address _userId) external view returns (uint256[] memory) {
         return users[_userId].borrowedBooks;
     }
@@ -103,5 +129,13 @@ contract Library {
         require(_bookId <= totalBooks && _bookId > 0, "Invalid book ID");
         Book memory book = books[_bookId];
         return (book.id, book.title, book.borrower, book.checkedOut);
+    }
+
+    function getUserInfo(address _user) public view returns(User memory){
+        return users[_user];
+    }
+
+    function getMailId(address _user) public view returns(string memory _mailId){
+        return users[_user].mailId;
     }
 }
